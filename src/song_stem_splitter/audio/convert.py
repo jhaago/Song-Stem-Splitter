@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from ..errors import AudioDecodeError, SeparationCancelledError
@@ -59,17 +60,52 @@ def prepare_for_demucs(input_file: Path, cancel_event=None) -> PreparedAudio:
         "pcm_s24le",
         str(output),
     ]
+
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
     except OSError as exc:
         raise AudioDecodeError("The audio decoder could not be started.", str(exc)) from exc
 
-    if completed.returncode != 0 or not output.exists():
-        detail = (completed.stderr or completed.stdout or "Unknown FFmpeg error").strip()
+    try:
+        while process.poll() is None:
+            if cancel_event is not None and cancel_event.is_set():
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=2)
+                output.unlink(missing_ok=True)
+                raise SeparationCancelledError("Stem separation was cancelled.")
+            time.sleep(0.1)
+        stdout, stderr = process.communicate()
+    except SeparationCancelledError:
+        try:
+            temp_dir.rmdir()
+        except OSError:
+            pass
+        raise
+
+    if process.returncode != 0 or not output.exists():
+        detail = (stderr or stdout or "Unknown FFmpeg error").strip()
+        output.unlink(missing_ok=True)
+        try:
+            temp_dir.rmdir()
+        except OSError:
+            pass
         raise AudioDecodeError("The selected audio file could not be decoded.", detail)
 
     if cancel_event is not None and cancel_event.is_set():
         output.unlink(missing_ok=True)
+        try:
+            temp_dir.rmdir()
+        except OSError:
+            pass
         raise SeparationCancelledError("Stem separation was cancelled.")
 
     return PreparedAudio(output, temporary=True)
