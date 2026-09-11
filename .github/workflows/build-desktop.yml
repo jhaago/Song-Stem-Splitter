@@ -1,0 +1,23 @@
+name: Build desktop bundles
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e '.[app,dev]'
+      - run: pyinstaller --clean song_stem_splitter.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: song-stem-splitter-${{ runner.os }}
+          path: dist/
