@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import os
+import ssl
 import urllib.request
 from pathlib import Path
 from threading import Event
+
+import certifi
 
 from ..errors import ModelDownloadError, SeparationCancelledError
 
@@ -44,8 +47,9 @@ class DemucsModelManager:
         destination.parent.mkdir(parents=True, exist_ok=True)
         partial = destination.with_suffix(destination.suffix + ".part")
         request = urllib.request.Request(HTDEMUCS_URL, headers={"User-Agent": "Song-Stem-Splitter/0.1"})
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
         try:
-            with urllib.request.urlopen(request, timeout=30) as response, partial.open("wb") as handle:
+            with urllib.request.urlopen(request, timeout=30, context=ssl_context) as response, partial.open("wb") as handle:
                 total = int(response.headers.get("Content-Length", "0") or 0)
                 downloaded = 0
                 while True:
