@@ -1,0 +1,85 @@
+name: Build desktop bundles v2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            machine: x86_64
+            label: Intel
+          - runner: macos-15
+            machine: arm64
+            label: Apple-Silicon
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify runner architecture
+        shell: bash
+        run: |
+          echo "Runner architecture: $(uname -m)"
+          test "$(uname -m)" = "${{ matrix.machine }}"
+      - run: python -m pip install --upgrade pip
+      - name: Install compatible NumPy baseline
+        run: python -m pip install 'numpy>=1.26,<2'
+      - run: pip install -e '.[app,dev]'
+      - name: Show runtime versions
+        shell: bash
+        run: |
+          python -c "import platform, torch; print('Python architecture:', platform.machine()); print('PyTorch:', torch.__version__)"
+      - name: Build macOS app
+        run: pyinstaller --clean song_stem_splitter.spec
+      - name: Verify built executable architecture
+        shell: bash
+        run: |
+          APP_EXE="dist/Song Stem Splitter.app/Contents/MacOS/Song Stem Splitter"
+          test -x "$APP_EXE"
+          INFO="$(file "$APP_EXE")"
+          echo "$INFO"
+          echo "$INFO" | grep -q "${{ matrix.machine }}"
+      - name: Ad-hoc sign test app
+        shell: bash
+        run: |
+          codesign --force --deep --sign - "dist/Song Stem Splitter.app"
+          codesign --verify --deep --strict "dist/Song Stem Splitter.app"
+      - name: Create DMG
+        shell: bash
+        run: |
+          rm -rf dmg-root
+          mkdir -p dmg-root
+          cp -R "dist/Song Stem Splitter.app" dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create \
+            -volname "Song Stem Splitter" \
+            -srcfolder dmg-root \
+            -ov \
+            -format UDZO \
+            "dist/Song-Stem-Splitter-macOS-${{ matrix.label }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: song-stem-splitter-macOS-${{ matrix.label }}
+          path: dist/Song-Stem-Splitter-macOS-${{ matrix.label }}.dmg
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e '.[app,dev]'
+      - run: pyinstaller --clean song_stem_splitter.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: song-stem-splitter-Windows
+          path: dist/
