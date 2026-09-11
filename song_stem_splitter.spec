@@ -1,4 +1,8 @@
-# PyInstaller onedir build. Run from repository root.
+# PyInstaller desktop build. Produces a normal folder on Windows and a .app bundle on macOS.
+from __future__ import annotations
+
+import sys
+
 from PyInstaller.utils.hooks import collect_all
 
 hiddenimports = []
@@ -38,3 +42,19 @@ coll = COLLECT(
     upx=False,
     name="Song Stem Splitter",
 )
+
+# A real .app bundle is important on macOS: it preserves executable permissions
+# inside a DMG and gives Gatekeeper a conventional application structure.
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="Song Stem Splitter.app",
+        icon=None,
+        bundle_identifier="com.jhaago.songstemsplitter",
+        info_plist={
+            "CFBundleName": "Song Stem Splitter",
+            "CFBundleDisplayName": "Song Stem Splitter",
+            "LSMinimumSystemVersion": "13.0",
+            "NSHighResolutionCapable": True,
+        },
+    )
