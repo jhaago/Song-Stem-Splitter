@@ -8,7 +8,7 @@ from PyInstaller.utils.hooks import collect_all
 hiddenimports = []
 datas = []
 binaries = []
-for package in ("demucs", "imageio_ffmpeg"):
+for package in ("demucs", "imageio_ffmpeg", "certifi"):
     d, b, h = collect_all(package)
     datas += d
     binaries += b
