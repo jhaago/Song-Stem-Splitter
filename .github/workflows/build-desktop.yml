@@ -41,6 +41,16 @@ jobs:
       - name: Install compatible NumPy baseline
         run: python -m pip install 'numpy>=1.26,<2'
 
+      # Demucs 4.1 pulls sphn. On Intel macOS there is no prebuilt sphn wheel,
+      # so pip compiles it and its bundled Opus dependency from source. CMake 4
+      # rejects that older Opus project file, therefore keep CMake 3.x for this
+      # build path. Apple Silicon uses a wheel and does not need this workaround.
+      - name: Prepare Intel native build toolchain
+        if: matrix.machine == 'x86_64'
+        run: |
+          python -m pip install 'cmake>=3.28,<4'
+          cmake --version
+
       - run: pip install -e '.[app,dev]'
 
       - name: Show runtime versions
