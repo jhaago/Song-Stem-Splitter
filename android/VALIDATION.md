@@ -1,5 +1,25 @@
 # First APK validation — 18 October 2026
 
+## Alpha 2 import correction — 18 October 2026
+
+- App `0.1.0-alpha2` (`versionCode 2`), ARM64; APK **4,101,999 bytes**.
+- SHA-256: `0ce9fb9dc0600a01ff76efa2d0872ce795065184fc184e95f8a73b213e4580e4`.
+- Signing certificate matches alpha 1, permitting an in-place update.
+- Fixed checking `SAMPLE_FLAG_ENCRYPTED` before confirming sample existence.
+  At EOF Android can return -1 for flags; bit-testing it caused false DRM errors.
+  The decoder now handles EOF before inspecting flags for an existing sample.
+- New host regression failed with the exact protected-audio exception before
+  the fix. After the fix, clear audio commits identical expected PCM for EOF
+  flags -1 and 0; actual encrypted flags on first/later samples stay rejected;
+  empty audio reports no decodable audio; failed imports clean partial output.
+- `testDebugUnitTest lintDebug assembleDebug` passed, with all 23 JVM tests
+  passing. Both decoder and playback host regressions and all 14 desktop tests
+  passed. APK v2 signature and 16 KiB zip alignment verified.
+- The first phone trial reported the alpha 1 import error. Alpha 2 has not yet
+  been retested on that phone; the host doubles do not verify actual MediaCodec.
+
+The following records the original alpha 1 build and its validation boundaries.
+
 ## Delivered build
 
 - App: Vocal Reducer `0.1.0-alpha1` (`versionCode 1`).

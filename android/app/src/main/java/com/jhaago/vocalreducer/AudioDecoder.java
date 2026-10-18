@@ -116,17 +116,20 @@ public final class AudioDecoder {
                         ByteBuffer buffer = codec.getInputBuffer(index);
                         if (buffer == null) throw new IOException("The Android audio decoder returned an unavailable input buffer.");
                         buffer.clear();
-                        if ((extractor.getSampleFlags() & MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) {
-                            throw new IOException("Protected audio cannot be imported. Choose a DRM-free local audio file.");
-                        }
                         int size = extractor.readSampleData(buffer, 0);
                         checkCancelled(callback);
                         if (size < 0) {
                             codec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                             inputEnded = true;
                         } else {
+                            // At EOF getSampleFlags() can return -1, which has every bit set.
+                            // Inspect encryption only after confirming a sample exists.
+                            int sampleFlags = extractor.getSampleFlags();
+                            if ((sampleFlags & MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) {
+                                throw new IOException("Protected audio cannot be imported. Choose a DRM-free local audio file.");
+                            }
                             if (size > buffer.capacity()) throw new IOException("The audio file contains an oversized encoded frame.");
-                            int flags = (extractor.getSampleFlags() & MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME) != 0
+                            int flags = (sampleFlags & MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME) != 0
                                     ? MediaCodec.BUFFER_FLAG_PARTIAL_FRAME : 0;
                             codec.queueInputBuffer(index, 0, size, Math.max(0, extractor.getSampleTime()), flags);
                             extractor.advance();

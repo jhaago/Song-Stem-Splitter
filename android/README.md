@@ -1,8 +1,12 @@
 # Vocal Reducer for Android
 
 An ad-free, phone-local vocal reducer built from the Song Stem Splitter work.
-This is the first **test APK**, version `0.1.0-alpha1`, for a physical-phone trial.
+This is a **test APK**, version `0.1.0-alpha2`, for a physical-phone trial.
 It is not yet a device-validated production release.
+
+Alpha 2 fixes an import bug where the end-of-file sample flags were mistaken
+for encryption, rejecting ordinary unprotected tracks with a protected-audio
+message. Install it over alpha 1 and retry the same local track.
 
 ## What it does
 
