@@ -1,0 +1,60 @@
+name: Android test app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feature/android-vocal-reducer]
+    paths: ['android/**', '.github/workflows/build-android.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/build-android.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned Android tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build, test and lint
+        working-directory: android
+        run: ./gradlew --no-daemon --console=plain testDebugUnitTest lintDebug assembleDebug
+      - name: Playback state regression
+        run: python3 android/host-tests/player_pause_regression.py
+      - name: Verify test APK
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VocalReducer-0.1.0-alpha1-arm64
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-reports
+          path: |
+            android/app/build/reports/tests/
+            android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+  native-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native checks
+        run: |
+          cmake -S android/app/src/main/cpp -B /tmp/vocal-native -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/vocal-native -j2
+          ctest --test-dir /tmp/vocal-native --output-on-failure
